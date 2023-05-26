@@ -11,7 +11,6 @@ This repo contains code pieces for our algorithm --- [Boosted AdaSSP](https://ar
 ## How to run
 We provide two python scripts for running classification and regression tasks, respectively, using OpenML tasks.
 ```shellscript
-python run_classification.py
 python run_regression.py
 ```
 ## License
