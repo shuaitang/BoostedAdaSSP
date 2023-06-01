@@ -1,5 +1,5 @@
 # Boosted AdaSSP
-This repo contains code pieces for our algorithm --- [Boosted AdaSSP](https://arxiv.org/pdf/2303.03451.pdf). It is a differentially private linear regression model that uses gradient boosting on top of AdaSSP to improve its performance.
+This repo contains code pieces for our algorithm --- [Boosted AdaSSP](https://arxiv.org/pdf/2303.03451v2.pdf). It is a differentially private linear regression model that uses gradient boosting on top of AdaSSP to improve its performance.
 ## Requiements
 - numpy
 - scipy
