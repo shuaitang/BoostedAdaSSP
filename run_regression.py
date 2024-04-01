@@ -19,7 +19,7 @@ parser.add_argument("--seed", type=int, default=0, help="random seed")
 parser.add_argument(
     "--num_iterations", type=int, default=100, help="number of iterations"
 )
-parser.add_argument("--shrinkage", type=float, default=1)
+parser.add_argument("--shrinkage", type=str, default="constant")
 
 parser.add_argument("--epsilon", type=float, default=1)
 parser.add_argument("--delta", type=float, default=1e-6)
@@ -43,7 +43,7 @@ def preprocessing_data(X, y, categorical_indicator):
     cat_cols = X.columns.values[is_cat]
     num_cols = X.columns.values[~is_cat]
 
-    cat_ohe_step = ("ohe", OneHotEncoder(sparse=False, handle_unknown="ignore"))
+    cat_ohe_step = ("ohe", OneHotEncoder(sparse_output=False, handle_unknown="ignore"))
 
     cat_pipe = Pipeline([cat_ohe_step])
     num_pipe = Pipeline([("identity", FunctionTransformer())])

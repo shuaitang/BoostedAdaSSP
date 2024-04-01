@@ -1,26 +1,63 @@
 import numpy as np
 import scipy
 import scipy.linalg
-
-from autodp.mechanism_zoo import GaussianMechanism
-from autodp.transformer_zoo import ComposeGaussian
-from autodp.autodp_core import Mechanism
-from autodp.calibrator_zoo import eps_delta_calibrator
+from scipy.optimize import minimize
+from scipy.stats import norm
 
 from sklearn import preprocessing
 
 
-class GB_mech(Mechanism):
-    def __init__(self,sigma,coeff,name='GB'):
-        Mechanism.__init__(self)
-        self.name = name
-        self.params={'sigma':sigma,'coeff':coeff}
-        gm = GaussianMechanism(sigma,name='Release')
-        # compose them with the transformation: ComposeGaussian.
-        compose = ComposeGaussian() 
-        mech = compose([gm], [coeff])
-        
-        self.set_all_representation(mech)
+def delta_eps(eps, mu):
+    """Delta computation based on mu and epsilon.
+
+     .. math::
+
+        \begin{aligned}
+            \delta(\epsilon) = \Phi(-\epsilon / \mu + \mu / 2) - \exp(\epsilon)\Phi(-\epsilon / \mu - \mu / 2)
+        \end{aligned}
+
+
+    Args:
+        mu (float): privacy parameter in Gaussian Differential Privacy
+        eps (float): privacy parameter in Approximate Differential Privacy
+
+    Returns:
+        delta (float): converted delta in Approximate Differential Privacy
+
+    """
+    delta = norm.cdf(-eps / mu + mu / 2) - np.exp(eps) * norm.cdf(-eps / mu - mu / 2)
+    return delta
+
+def convert_ApproxDP_to_GDP(eps: float, delta: float = 1e-6):
+    """Convert the privacy parameters eps and delta in Approximate DP to the privacy parameter mu in Gaussian DP
+
+    With the same privacy loss, Gaussian DP allows more interactions with the data than Approximate DP does.
+    The underlying composition over multiple campaigns is done through Gaussian DP.
+
+    Once we receive the total privacy budget in eps provided by a customer, this function converts (eps, delta) pair to mu.
+
+    Args:
+        eps (float): privacy parameter in Approximate Differential Privacy
+        delta (float): privacy parameter in Approximate Differential Privacy
+
+    Returns:
+        mu (float): privacy parameter in Gaussian Differential Privacy
+    """
+
+    assert eps > 0
+    assert delta > 0
+
+    res = minimize(
+        fun=lambda mu: (np.log(delta_eps(eps, mu)) - np.log(delta)) ** 2.0,
+        x0=eps,
+        bounds=((delta, None),),
+        tol=delta**2.0,
+        method="Nelder-Mead",
+        options={"maxiter": 10000},
+    )
+    mu = res.x
+
+    return mu
 
 class BoostedAdaSSP:
     def __init__(
@@ -39,7 +76,7 @@ class BoostedAdaSSP:
         self.epsilon = epsilon
         self.delta = delta
         self.num_iterations = num_iterations
-        # print(shrinkage)
+
         if shrinkage == "constant":
             self.shrinkage = lambda x: 1
         if shrinkage == "1/T":
@@ -47,14 +84,7 @@ class BoostedAdaSSP:
         if shrinkage == "1/T**0.5":
             self.shrinkage = lambda x: 1/x ** 0.5
        
-
-        self.calibration()
-
-    def calibration(self):
-        GB_fix_iterations = lambda x:  GB_mech(x,1+self.num_iterations+1)
-        calibrate = eps_delta_calibrator()
-        mech = calibrate(GB_fix_iterations, self.epsilon, self.delta, [0,100000])
-        self.sigma = mech.params['sigma']
+        self.sigma = convert_ApproxDP_to_GDP(self.epsilon, self.delta)
 
 
     def clipping_norm(self, X):
